@@ -4,15 +4,24 @@ import csv
 from dataclasses import dataclass
 from typing import Any, Protocol
 import sys
+import toml
 
+pyproj_conf = toml.load("./pyproject.toml")
+
+#Extract desired information from pyproject.toml
+authors = pyproj_conf["tool"]["poetry"]["authors"]
 
 program_name = "Interpret Log Files"
 program_description = "Turns the Log Files (.log) of test results into a convenient table (.csv). (Note that the .log file is a specific .csv.)"+\
                         "This is designed to interpret the output of Eagle's ETS-364B tester."
-program_epilog = "Author: Isaac Mierow"
+program_epilog = f"Author{'s' if len(authors) else ''}: {', '.join([a for a in authors])}"
 
 #Default Values:
 DEFAULT_OUTPUT_PATH = "output.csv"
+
+# Remove referances to allow to be deleted after extracted desired values
+del authors
+del pyproj_conf
 
 parser = argparse.ArgumentParser(prog=program_name,
                                  description=program_description,

@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "ets-logfile-interpreter"
+version = "1.0.0"
+description = "A python program to interpret the log files of a ETS-364B (Eagle Test Systems) IC tester, but probably generalizes."
+authors = ["Isaac Mierow"]
+license = "MIT"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+toml = "^0.10.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

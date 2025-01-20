@@ -1,3 +1,9 @@
+# Ignore output & Log Files
+output.csv
+*.csv
+*.log
+!example_log.log
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
