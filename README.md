@@ -8,7 +8,7 @@ git clone this repository
 ### Install Poetry
 Install [Pipx](https://pipx.pypa.io/stable/installation/)
 
-(On Windows, also installing [scoop](https://scoop.sh/))
+(On Windows, using Powershell, also installing [scoop](https://scoop.sh/))
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
