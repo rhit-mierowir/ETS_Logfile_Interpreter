@@ -6,6 +6,8 @@ A python program to interpret the log files of a ETS-364B (Eagle Test Systems) I
 git clone this repository
 
 ### Install Poetry
+To manage dependancies for this python project, we are using [Poetry](https://python-poetry.org/docs/), which automatically handles dependancies and conflicts with other python versions and dependancies by running all code in separate virtual environments. Poetry is configured in the pyproject.toml file.
+
 Install [Pipx](https://pipx.pypa.io/stable/installation/)
 
 (On Windows, using Powershell, also installing [scoop](https://scoop.sh/))
