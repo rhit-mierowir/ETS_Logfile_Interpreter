@@ -2,11 +2,19 @@ import argparse
 from enum import Enum
 import csv 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol,Iterator,Generator
+from io import TextIOWrapper
 import sys
 import toml
+import xlsxwriter
 
 pyproj_conf = toml.load("./pyproject.toml")
+
+# To Add Better Formatting, see these articles explaining exporting directly to xlsx file:
+# https://techsorber.com/how-to-merge-cells-in-excel-using-python-pandas/
+# https://stackoverflow.com/questions/61217923/merge-rows-based-on-value-pandas-to-excel-xlsxwriter
+# https://xlsxwriter.readthedocs.io/example_merge1.html
+# https://pythonbasics.org/write-excel/
 
 #Extract desired information from pyproject.toml
 authors = pyproj_conf["tool"]["poetry"]["authors"]
@@ -113,6 +121,7 @@ def convert_data_to_float(data:str)->float|None:
 
     
 def row_list_to_dataclass(row_list:list[str])->LOG_ROW:
+    "Turns a row of the CSV into its associated dataclass."
     type:Row_Types = row_number_to_row_types(int(row_list[0]))
     match type:
         case Row_Types.TEST_DATA_CONFIG:
@@ -145,6 +154,17 @@ def row_list_to_dataclass(row_list:list[str])->LOG_ROW:
         case _:
             return UNSPECIFIED_LOG_ROW(type,row_list.copy()[1:])
 
+def interpreted_logfile(log_file_path: str) -> Generator[LOG_ROW, None,None]:
+    "This returns a generator that returns the dataclasses from interpreting rows of the logfile as they are needed."
+    with open(log_file_path,mode="r",newline="\n") as csvfile:
+        logreader = csv.reader(csvfile, delimiter=',', quotechar='"')
+        for row_num,row in enumerate(logreader):
+            try:
+                yield row_list_to_dataclass(list(row))
+            except Exception as e:
+                raise type(e)(str(e) + f"Occoured in line {row_num} of the logfile provided '{log_file_path}'").with_traceback(sys.exc_info()[2])
+                    #https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
+
 def run():
     "Only run parser if directly called."
     args = parser.parse_args()
@@ -154,10 +174,10 @@ def run():
     if log_file is None:
         raise ValueError("No logfile was provided")
     
-    get_log_results(logfile=log_file,
+    results_to_csv(logfile=log_file,
                     targetfile=output_file)
 
-def get_log_results(logfile: str, targetfile: str):
+def results_to_csv(logfile: str, targetfile: str):
     "This takes the logfile and generates a csv outpu in the target file."
 
     # Extract all test data
@@ -168,6 +188,28 @@ def get_log_results(logfile: str, targetfile: str):
     processing_data = False # Flag notes when currently in a TEST_DATA section
 
     # Extract test results from logfile
+    for log_row in interpreted_logfile(logfile):
+
+        match log_row.type:
+
+            case Row_Types.TEST_DATA_CONFIG:
+                test_config_rows.append(log_row)
+
+            case Row_Types.TEST_SUMMARY:
+                test_summaries.append(log_row)
+                processing_data = False # Rows happen whenever exit TEST_DATA section
+
+            case Row_Types.TEST_DATA:
+                if processing_data:
+                    test_data[-1].append(log_row)
+                else:
+                    test_data.append([log_row])
+                    processing_data = True # Have started brocessing block of data
+            
+            case _:
+                pass
+
+
     with open(logfile,mode="r",newline="\n") as csvfile:
         logreader = csv.reader(csvfile, delimiter=',', quotechar='"')
         for row_num,row in enumerate(logreader):
@@ -176,24 +218,7 @@ def get_log_results(logfile: str, targetfile: str):
             except Exception as e:
                 raise type(e)(str(e) + f"Occoured in line {row_num} of the logfile provided '{logfile}'").with_traceback(sys.exc_info()[2])
                     #https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
-            match row_interpreted.type:
-
-                case Row_Types.TEST_DATA_CONFIG:
-                    test_config_rows.append(row_interpreted)
-
-                case Row_Types.TEST_SUMMARY:
-                    test_summaries.append(row_interpreted)
-                    processing_data = False # Rows happen whenever exit TEST_DATA section
-
-                case Row_Types.TEST_DATA:
-                    if processing_data:
-                        test_data[-1].append(row_interpreted)
-                    else:
-                        test_data.append([row_interpreted])
-                        processing_data = True # Have started brocessing block of data
-                
-                case _:
-                    pass
+            
     
 
     # CSV FORMAT
@@ -259,6 +284,9 @@ def get_log_results(logfile: str, targetfile: str):
     except PermissionError as e:
         raise type(e)(str(e) + f"You may have this file open in another program.'").with_traceback(sys.exc_info()[2])
                     #https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
+
+def results_to_excel(logfile:str, targetfile:str):
+    pass
 
 if __name__ == "__main__":
     run()

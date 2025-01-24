@@ -11,7 +11,18 @@ files = [
     {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
 ]
 
+[[package]]
+name = "xlsxwriter"
+version = "3.2.1"
+description = "A Python module for creating Excel XLSX files."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "XlsxWriter-3.2.1-py3-none-any.whl", hash = "sha256:7e8f7c60b7a1660ef791d46ab5de78469cb978b991ca841af61f5832d2f9f4fe"},
+    {file = "XlsxWriter-3.2.1.tar.gz", hash = "sha256:97618759cb264fb6a93397f660cca156ffa9561743b1823dafb60dc4474e1902"},
+]
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "a2979e0b41f52be7a0a5d99e4d017de80788fb2bfbe966fe57e21e38e62ba8fe"
+content-hash = "c9e7eb495a300254009b72c9961a81fa9cb80d2c2421e3afb4c5235cdecd8653"
