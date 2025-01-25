@@ -1,5 +1,7 @@
 # Ignore output & Log Files
 output.csv
+output.xlsx
+*.xlsx
 *.csv
 *.log
 !example_log.log

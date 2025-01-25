@@ -1,0 +1,32 @@
+[format]
+# See: https://xlsxwriter.readthedocs.io/format.html
+
+[format.pass] # Green
+bold = true
+font_color  = "#058705"    # Color of font
+bg_color    = "#d3ffd3"    # Color of cell
+
+[format.subtle_pass]
+font_color  = "#003000"
+bg_color    = "#d3ffd3"
+
+[format.fail] # Red
+bold = true
+font_color  = "#cc0a0e"
+bg_color    = "#ff8486"
+
+[format.subtle_fail]
+font_color  = "#590305"
+bg_color    = "#ffd3d4"
+
+[format.empty] # grey cell out
+bg_color = "#b0b0b0"
+
+[format.conditional]
+#See: https://xlsxwriter.readthedocs.io/example_conditional_format.html
+
+
+[format.conditional.large_as_good]
+type = "2_color_scale"
+min_color = "#ff8486"
+max_color = "#d3ffd3"

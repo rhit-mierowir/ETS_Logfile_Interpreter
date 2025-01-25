@@ -1,12 +1,11 @@
 import argparse
-from enum import Enum
-import csv 
-from dataclasses import dataclass
+import csv
 from typing import Any, Protocol,Iterator,Generator
-from io import TextIOWrapper
 import sys
 import toml
-import xlsxwriter
+from xlsxwriter.workbook import Workbook, Worksheet, Format
+import src.logfile_reading as lf
+from src.excel_writing import format_from_config
 
 pyproj_conf = toml.load("./pyproject.toml")
 
@@ -25,7 +24,7 @@ program_description = "Turns the Log Files (.log) of test results into a conveni
 program_epilog = f"Author{'s' if len(authors) else ''}: {', '.join([a for a in authors])}"
 
 #Default Values:
-DEFAULT_OUTPUT_PATH = "output.csv"
+DEFAULT_OUTPUT_NAME = "output"
 
 # Remove referances to allow to be deleted after extracted desired values
 del authors
@@ -36,134 +35,8 @@ parser = argparse.ArgumentParser(prog=program_name,
                                  epilog=program_epilog)
 parser.add_argument('-l','--log',type=str,default=None,
                    help=f"The file ")
-parser.add_argument('-o','--output',type=str,default=DEFAULT_OUTPUT_PATH,
-                    help= f"The path of the .csv file that this program should output. Default: {DEFAULT_OUTPUT_PATH}")
-
-class Row_Types(Enum):
-    TEST_DATA_CONFIG    = 10
-    TEST_DATA           = 100
-    TEST_SUMMARY        = 130
-    WARNING             = 145
-    HEADER              = 120
-    HEADER2             = 125
-    FILE_INFO           = 140
-    UNKNOWN             = -1
-
-def row_number_to_row_types(row_number:int)->Row_Types:
-    try:
-        return Row_Types._value2member_map_[row_number]
-    except KeyError:
-        print(f"Unknown row type found: number {row_number}")
-        return Row_Types.UNKNOWN
-
-
-class LOG_ROW(Protocol):
-    type: Row_Types
-
-@dataclass
-class UNSPECIFIED_LOG_ROW:
-    type: Row_Types
-    data: list[Any]
-
-@dataclass
-class TEST_DATA_CONFIG:
-    test_id: str
-    decimal_position: int #Assumed, not sure
-    min: float|None
-    max: float|None
-    unit:str
-    name:str
-    type: Row_Types = Row_Types.TEST_DATA_CONFIG
-
-@dataclass
-class TEST_DATA:
-    test_id: str
-    issue: str
-    passed: bool
-    value: float
-    type: Row_Types = Row_Types.TEST_DATA
-
-@dataclass
-class TEST_SUMMARY:
-    site_num: int
-    time_completed: str
-    serial_num:str
-    passed:bool
-    unknown1:Any
-    unknown2:Any
-    bin_num:int
-    unknown3:Any
-    unknown4:Any
-
-    type: Row_Types = Row_Types.TEST_SUMMARY
-
-def pass_fail_to_passed(pf:str)->bool:
-    "turn p->true and f->fail, default to fail if can't tell"
-    match pf.lower():
-        case "p":
-            return True
-        case "f":
-            return False
-        case _:
-            return False
-
-def passed_to_pass_fail(passed:bool)->str:
-    if passed:
-        return "P"
-    else:
-        return "F"
-
-def convert_data_to_float(data:str)->float|None:
-    try:
-        return float(data)
-    except ValueError:
-        return None
-
-    
-def row_list_to_dataclass(row_list:list[str])->LOG_ROW:
-    "Turns a row of the CSV into its associated dataclass."
-    type:Row_Types = row_number_to_row_types(int(row_list[0]))
-    match type:
-        case Row_Types.TEST_DATA_CONFIG:
-            return TEST_DATA_CONFIG(
-                                    test_id=            row_list[1],
-                                    decimal_position=   int(row_list[2]),
-                                    min=                convert_data_to_float(row_list[3]),
-                                    max=                convert_data_to_float(row_list[4]),
-                                    unit=               row_list[5],
-                                    name=               row_list[6]
-                                    )
-        case Row_Types.TEST_DATA:
-            return TEST_DATA(
-                             test_id=   row_list[1],
-                             issue=     row_list[2],
-                             passed=    pass_fail_to_passed(row_list[3]),
-                             value=     float(row_list[4])
-                             )
-        case Row_Types.TEST_SUMMARY:
-            return TEST_SUMMARY(
-                                site_num=       int(row_list[1]),
-                                time_completed= row_list[2],
-                                serial_num=     row_list[3],
-                                passed=         pass_fail_to_passed(row_list[4]),
-                                unknown1=       row_list[5],
-                                unknown2=       row_list[6],
-                                bin_num=        int(row_list[7]),
-                                unknown3=       row_list[8],
-                                unknown4=       row_list[9])
-        case _:
-            return UNSPECIFIED_LOG_ROW(type,row_list.copy()[1:])
-
-def interpreted_logfile(log_file_path: str) -> Generator[LOG_ROW, None,None]:
-    "This returns a generator that returns the dataclasses from interpreting rows of the logfile as they are needed."
-    with open(log_file_path,mode="r",newline="\n") as csvfile:
-        logreader = csv.reader(csvfile, delimiter=',', quotechar='"')
-        for row_num,row in enumerate(logreader):
-            try:
-                yield row_list_to_dataclass(list(row))
-            except Exception as e:
-                raise type(e)(str(e) + f"Occoured in line {row_num} of the logfile provided '{log_file_path}'").with_traceback(sys.exc_info()[2])
-                    #https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
+parser.add_argument('-o','--output',type=str,default=DEFAULT_OUTPUT_NAME,
+                    help= f"The path of the .csv file and .xlsx that this program should output. Default: {DEFAULT_OUTPUT_NAME}.csv & .xlsx")
 
 def run():
     "Only run parser if directly called."
@@ -175,52 +48,16 @@ def run():
         raise ValueError("No logfile was provided")
     
     results_to_csv(logfile=log_file,
-                    targetfile=output_file)
+                    targetfile=output_file+".csv")
+    
+    #results_to_excel(logfile=log_file,
+    #                 targetfile=output_file+".xlsx")
 
-def results_to_csv(logfile: str, targetfile: str):
+def results_to_csv(logfile: str, targetfile: str) -> None:
     "This takes the logfile and generates a csv outpu in the target file."
 
-    # Extract all test data
-    test_config_rows:   list[TEST_DATA_CONFIG]  =[] # list of all config rows, in logfile order, specify tests by id
-    test_data:          list[list[TEST_DATA]]   =[] #List of lists of config data, inner list in same order as test_config_rows, outer in same order as test_summaries
-    test_summaries:     list[TEST_SUMMARY]      =[] # List all summaries in the order they are presented in logfile
-
-    processing_data = False # Flag notes when currently in a TEST_DATA section
-
-    # Extract test results from logfile
-    for log_row in interpreted_logfile(logfile):
-
-        match log_row.type:
-
-            case Row_Types.TEST_DATA_CONFIG:
-                test_config_rows.append(log_row)
-
-            case Row_Types.TEST_SUMMARY:
-                test_summaries.append(log_row)
-                processing_data = False # Rows happen whenever exit TEST_DATA section
-
-            case Row_Types.TEST_DATA:
-                if processing_data:
-                    test_data[-1].append(log_row)
-                else:
-                    test_data.append([log_row])
-                    processing_data = True # Have started brocessing block of data
-            
-            case _:
-                pass
-
-
-    with open(logfile,mode="r",newline="\n") as csvfile:
-        logreader = csv.reader(csvfile, delimiter=',', quotechar='"')
-        for row_num,row in enumerate(logreader):
-            try:
-                row_interpreted = row_list_to_dataclass(list(row))
-            except Exception as e:
-                raise type(e)(str(e) + f"Occoured in line {row_num} of the logfile provided '{logfile}'").with_traceback(sys.exc_info()[2])
-                    #https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
-            
+    test_config_rows, test_data, test_summaries = lf.get_test_results_from_logfile(logfile)
     
-
     # CSV FORMAT
     # |               CONFIG INFO                |           Test 1          |
     # |                                          |    Site 1   |    Site 2   |   ...
@@ -264,21 +101,21 @@ def results_to_csv(logfile: str, targetfile: str):
 
             # Write rows for all data rows
             for r in range(testcase_rows):
-                cfg:TEST_DATA_CONFIG = test_config_rows[r]
+                cfg:lf.TEST_DATA_CONFIG = test_config_rows[r]
                 row = [cfg.test_id,
                     cfg.name,
                     cfg.min if not None else '',
                     cfg.max if not None else '',
                     cfg.unit]
                 for t in range(site_test_count):
-                    data:TEST_DATA = test_data[t][r]
-                    row += [data.value,passed_to_pass_fail(data.passed)]
+                    data:lf.TEST_DATA = test_data[t][r]
+                    row += [data.value,lf.passed_to_pass_fail(data.passed)]
                 csvwriter.writerow(row)
 
             # Write Final summary Row
             row = "Overall,,,,".split(",")
             for i in range(site_test_count):
-                row += ['',passed_to_pass_fail(test_summaries[i].passed)]
+                row += ['',lf.passed_to_pass_fail(test_summaries[i].passed)]
             csvwriter.writerow(row)
 
     except PermissionError as e:
@@ -286,7 +123,50 @@ def results_to_csv(logfile: str, targetfile: str):
                     #https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
 
 def results_to_excel(logfile:str, targetfile:str):
-    pass
+    test_config_rows, test_data, test_summaries = lf.get_test_results_from_logfile(logfile)
+    
+    # CSV FORMAT
+
+    # |               CONFIG INFO                |           Test 1          |
+    # |                                          |    Site 1   |    Site 2   |   ...
+    # | TEST_NUM | Test_Name | Min | Max | Units | Value | P/F | Value | P/F |
+    #        ...
+    # | Overall  |           |     |     |       | result| P/F | result| P/F |
+
+    # Config # rows = 5,   Test # rows = 4,  # Columns = # tests + 4
+
+    # Specify how to build parts in functions
+    def create_config_info(ws: Worksheet,config_info:list[lf.TEST_DATA_CONFIG], first_column:int, first_row:int ,format_empty_cells:bool, f_empty:Format):
+        "Writes config info to the Worksheet as specified in the 'CSV Format' comment in results_to_excel(). This is 5 entries long."
+        c = first_column
+        r = first_row
+
+        ws.merge_range(r,c,r,c+4,"CONFIG INFO")
+
+
+
+    #Calculating some useful values
+    site_test_count = len(test_summaries) # each site counts as one test
+    site_count = len(set([ s.site_num for s in test_summaries])) # Collects all site numbers and finds the number of distinct sites, assumes site used in each test
+    test_count = int(site_test_count/site_count)
+
+    requirement_count = len(test_config_rows) # Each of the things that will be tested.
+
+    with Workbook(targetfile) as wb:
+        all_results = wb.add_worksheet(name="Results")
+
+        # Get formats
+        f_pass = format_from_config(wb,"pass")
+        f_subtle_pass = format_from_config(wb,"subtle_pass")
+        f_fail = format_from_config(wb,"fail")
+        f_subtle_fail = format_from_config(wb,"subtle_fail")
+        f_empty = format_from_config(wb,"empty")
+
+    
+
+
+        
+
 
 if __name__ == "__main__":
     run()
