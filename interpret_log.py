@@ -44,7 +44,7 @@ def run():
     args = parser.parse_args()
     log_file = args.log
     output_file = args.output
-    log_file = "./example_log.log"
+    
     if log_file is None:
         raise ValueError("No logfile was provided")
     
