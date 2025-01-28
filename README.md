@@ -5,9 +5,23 @@ A python program to interpret the log files of a ETS-364B (Eagle Test Systems) I
 
 git clone this repository
 
-### Install Poetry
+## Install Poetry
 To manage dependancies for this python project, we are using [Poetry](https://python-poetry.org/docs/), which automatically handles dependancies and conflicts with other python versions and dependancies by running all code in separate virtual environments. Poetry is configured in the pyproject.toml file.
 
+### Install directly from poetry
+Alternatively, you could [Install Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer) by directly downloading the official installer.
+
+Windows (Powershell)
+```powershell
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
+```
+
+Linux, MacOs, Windows WSL
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+### Install with Pipx
 Install [Pipx](https://pipx.pypa.io/stable/installation/)
 
 (On Windows, using Powershell, also installing [scoop](https://scoop.sh/))
@@ -24,7 +38,7 @@ Install [Poetry](https://python-poetry.org/docs/)
 pipx install poetry
 ```
 
-Install Dependancies for Python File
+## Install Dependancies for Python Program
 ```bash
 cd <path/of/this/repository>
 poetry install
