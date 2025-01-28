@@ -123,7 +123,6 @@ def results_to_csv(logfile: str, targetfile: str) -> None:
         raise type(e)(str(e) + f"You may have this file open in another program.'").with_traceback(sys.exc_info()[2])
                     #https://stackoverflow.com/questions/6062576/adding-information-to-an-exception
 
-
 def results_to_excel(logfile:str, targetfile:str):
     "Gets results and creates an excel file from them."
     # CSV FORMAT
