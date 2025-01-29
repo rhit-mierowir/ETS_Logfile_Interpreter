@@ -94,7 +94,7 @@ def results_to_csv(logfile: str, targetfile: str) -> None:
             csvwriter.writerow(row)
 
             # Make Third Level Headers
-            row = "#,Name,Min,Max,Unit".split(",")
+            row = "#,Name,Max,Min,Unit".split(",")
             for _ in range(test_count):
                 for _ in range(site_count):
                     row += "Value,?".split(",")
@@ -141,7 +141,7 @@ def results_to_excel(logfile:str, targetfile:str):
         "Writes config info to the Worksheet as specified in the 'CSV Format' comment in results_to_excel(). This is 5 entries long."
 
         ws.merge_range(first_row,first_column,first_row+1,first_column+4,"CONFIG INFO",f_title)
-        ws.write_row(first_row+2,first_column,["ID","Test Name", "Min", "Max", "Units"],f_title)
+        ws.write_row(first_row+2,first_column,["ID","Test Name", "Max", "Min", "Units"],f_title)
 
         for row, requirement in enumerate(config_info, start=first_row+3):
             ws.write(row,first_column  ,requirement.test_id)
